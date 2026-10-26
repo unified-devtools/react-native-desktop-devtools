@@ -77,9 +77,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
-          releaseName: 'Unified DevTools ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}'
+          releaseName: "React Native Desktop DevTools ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}"
           releaseBody: |
-            ## Unified DevTools Desktop
+            ## React Native Desktop DevTools
 
             Cross-platform desktop inspection companion for React Native, TanStack Query, and MMKV with real-time network mocking and custom plugin architecture.
 
