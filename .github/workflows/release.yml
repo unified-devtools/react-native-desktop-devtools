@@ -4,9 +4,33 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+      draft:
+        description: 'Create draft release'
+        required: false
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
   release:
+    name: Build & Package (${{ matrix.platform }})
     permissions:
       contents: write
     strategy:
@@ -14,13 +38,19 @@ jobs:
       matrix:
         include:
           - platform: 'macos-latest'
-            args: '--target universal-apple-darwin'
+            args: '--target aarch64-apple-darwin'
+            target: 'aarch64-apple-darwin'
+          - platform: 'macos-13'
+            args: '--target x86_64-apple-darwin'
+            target: 'x86_64-apple-darwin'
           - platform: 'windows-latest'
             args: ''
+            target: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -28,22 +58,35 @@ jobs:
           node-version: 22
           cache: 'npm'
 
-      - name: Setup Rust stable
+      - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
 
       - name: Install dependencies
         run: npm ci || npm install
 
-      - name: Build Desktop Application (Tauri v2)
+      - name: Build Application & Release (Tauri v2)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Unified DevTools ${{ github.ref_name }}'
-          releaseBody: 'See the release notes for details.'
-          releaseDraft: false
-          prerelease: false
+          tagName: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
+          releaseName: 'Unified DevTools ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}'
+          releaseBody: |
+            ## Unified DevTools Desktop
+
+            Cross-platform desktop inspection companion for React Native, TanStack Query, and MMKV with real-time network mocking and custom plugin architecture.
+
+            ### Assets
+            - **macOS Apple Silicon**: `.dmg` (aarch64)
+            - **macOS Intel**: `.dmg` (x86_64)
+            - **Windows**: `.msi` / `.exe` setup (x64)
+          releaseDraft: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.draft || false }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.prerelease || false }}
           args: ${{ matrix.args }}
