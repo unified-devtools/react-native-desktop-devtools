@@ -57,7 +57,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="text-white font-black text-xs">⚛</span>
           </div>
           <div>
-            <h1 className="font-bold text-sm tracking-tight text-devText">Unified DevTools</h1>
+            <h1 className="font-bold text-sm tracking-tight text-devText leading-none">Unified DevTools</h1>
+            <span className="text-[10px] text-devAccent font-semibold">by @archie-dev</span>
           </div>
         </div>
 
