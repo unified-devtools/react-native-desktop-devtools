@@ -1,3 +1,4 @@
+import appIcon from '../assets/app-icon.png';
 import { 
   Terminal, 
   Globe, 
@@ -53,9 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* App Branding & Theme Toggle Header */}
       <div className="h-14 px-4 flex items-center justify-between border-b border-devBorder">
         <div className="flex items-center space-x-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <span className="text-white font-black text-xs">⚛</span>
-          </div>
+          <img src={appIcon} alt="Logo" className="w-7 h-7 rounded-lg object-contain shadow-sm" />
           <div>
             <h1 className="font-bold text-sm tracking-tight text-devText leading-none">Unified DevTools</h1>
             <span className="text-[10px] text-devAccent font-semibold">by @archie-dev</span>
