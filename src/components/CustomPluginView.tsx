@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { CustomPluginSchema } from '../types';
 import { Search, Puzzle, Play } from 'lucide-react';
+import { JsonTree } from './JsonTree';
 
 interface CustomPluginViewProps {
   schema: CustomPluginSchema;
@@ -117,15 +118,17 @@ export const CustomPluginView: React.FC<CustomPluginViewProps> = ({
         </div>
 
         {/* Right: Selected Event JSON Inspector */}
-        <div className="w-1/2 flex flex-col bg-devSurface/40 overflow-hidden p-4">
+        <div className="w-1/2 flex flex-col bg-devSurface/40 overflow-hidden p-4 select-text">
           {selectedEvent ? (
             <div className="space-y-3">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-devTextDim">
-                Event Payload Inspector
-              </h3>
-              <pre className="p-3 bg-devCodeBg rounded-lg border border-devBorder text-xs font-mono text-devText overflow-x-auto whitespace-pre-wrap">
-                {JSON.stringify(selectedEvent, null, 2)}
-              </pre>
+              <div className="flex items-center justify-between">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-devTextDim">
+                  Event Payload Inspector
+                </h3>
+              </div>
+              <div className="p-3 bg-devCodeBg rounded-lg border border-devBorder overflow-x-auto select-text">
+                <JsonTree data={selectedEvent} defaultExpandedDepth={2} />
+              </div>
             </div>
           ) : (
             <div className="flex items-center justify-center h-full text-devTextMuted text-xs">

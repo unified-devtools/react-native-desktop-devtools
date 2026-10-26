@@ -100,16 +100,23 @@ export function App() {
           if (schemas && Array.isArray(schemas)) {
             setCustomPlugins(schemas);
           }
+          // Immediately sync active mock rules upon client handshake
+          sendToMobile({
+            type: 'network:set_mocks',
+            payload: mockRules.filter((m) => m.enabled),
+          });
         }
 
         // Console Log
         else if (packet.type === 'console:log') {
+          const rawArgs = packet.payload?.args;
+          const args = Array.isArray(rawArgs) ? rawArgs : (rawArgs !== undefined ? [rawArgs] : []);
           const entry: ConsoleEntry = {
             id: 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-            level: packet.payload.level || 'log',
-            args: packet.payload.args || [],
-            timestamp: packet.payload.timestamp || Date.now(),
-            stack: packet.payload.stack,
+            level: packet.payload?.level || 'log',
+            args,
+            timestamp: packet.payload?.timestamp || Date.now(),
+            stack: packet.payload?.stack,
           };
           setLogs((prev) => [entry, ...prev].slice(0, 5000));
         }
@@ -225,6 +232,28 @@ export function App() {
     sendToMobile({ type: 'query:action', payload: { action: 'reset', queryKey } });
   };
 
+  const handleRemoveQuery = (queryKey: string) => {
+    sendToMobile({ type: 'query:action', payload: { action: 'remove', queryKey } });
+    setQueries((prev) => prev.filter((q) => q.key !== queryKey));
+  };
+
+  const handleTriggerLoading = (queryKey: string) => {
+    sendToMobile({ type: 'query:action', payload: { action: 'triggerLoading', queryKey } });
+  };
+
+  const handleTriggerError = (queryKey: string) => {
+    sendToMobile({ type: 'query:action', payload: { action: 'triggerError', queryKey } });
+  };
+
+  const handleRefetchAllQueries = () => {
+    sendToMobile({ type: 'query:action', payload: { action: 'refetchAll' } });
+  };
+
+  const handleClearAllQueries = () => {
+    sendToMobile({ type: 'query:action', payload: { action: 'clearAll' } });
+    setQueries([]);
+  };
+
   const handleTriggerCustomAction = (pluginId: string, actionId: string) => {
     sendToMobile({ type: 'custom:action', payload: { pluginId, actionId } });
   };
@@ -272,6 +301,11 @@ export function App() {
               onRefetchQuery={handleRefetchQuery}
               onInvalidateQuery={handleInvalidateQuery}
               onResetQuery={handleResetQuery}
+              onRemoveQuery={handleRemoveQuery}
+              onTriggerLoading={handleTriggerLoading}
+              onTriggerError={handleTriggerError}
+              onRefetchAll={handleRefetchAllQueries}
+              onClearAll={handleClearAllQueries}
             />
           )}
           {currentTab === 'custom' && activeCustomSchema && (

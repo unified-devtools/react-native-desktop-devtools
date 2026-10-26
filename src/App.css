@@ -47,6 +47,15 @@ html, body, #root {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
+/* Enable text selection and highlight across console logs, code blocks & tree views */
+.select-text,
+.select-text *,
+pre,
+code {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

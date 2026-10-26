@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { NetworkEntry, MockRule } from '../types';
 import { Search, Globe, Copy, Check, Clock, Plus, Trash2, Sliders } from 'lucide-react';
+import { JsonTree } from './JsonTree';
 
 interface NetworkViewProps {
   requests: NetworkEntry[];
@@ -198,17 +199,23 @@ export const NetworkView: React.FC<NetworkViewProps> = ({
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[11px] uppercase tracking-wider text-devTextDim font-semibold">Response Body</span>
                       <button
-                        onClick={() => copyText(JSON.stringify(selectedRequest.responseBody, null, 2))}
+                        onClick={() => copyText(typeof selectedRequest.responseBody === 'object' ? JSON.stringify(selectedRequest.responseBody, null, 2) : String(selectedRequest.responseBody))}
                         className="text-[11px] text-devAccent hover:underline"
                       >
                         Copy Response
                       </button>
                     </div>
-                    <pre className="p-3 bg-devCodeBg rounded-lg border border-devBorder text-xs font-mono text-emerald-500 overflow-x-auto whitespace-pre-wrap">
-                      {selectedRequest.responseBody !== undefined
-                        ? JSON.stringify(selectedRequest.responseBody, null, 2)
-                        : '// No response body or empty payload'}
-                    </pre>
+                    {typeof selectedRequest.responseBody === 'object' && selectedRequest.responseBody !== null ? (
+                      <div className="p-3 bg-devCodeBg rounded-lg border border-devBorder overflow-x-auto select-text">
+                        <JsonTree data={selectedRequest.responseBody} defaultExpandedDepth={2} />
+                      </div>
+                    ) : (
+                      <pre className="p-3 bg-devCodeBg rounded-lg border border-devBorder text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap select-text">
+                        {selectedRequest.responseBody !== undefined
+                          ? String(selectedRequest.responseBody)
+                          : '// No response body or empty payload'}
+                      </pre>
+                    )}
                   </div>
                 )}
 
@@ -217,11 +224,17 @@ export const NetworkView: React.FC<NetworkViewProps> = ({
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[11px] uppercase tracking-wider text-devTextDim font-semibold">Request Body</span>
                     </div>
-                    <pre className="p-3 bg-devCodeBg rounded-lg border border-devBorder text-xs font-mono text-devText overflow-x-auto whitespace-pre-wrap">
-                      {selectedRequest.requestBody !== undefined
-                        ? JSON.stringify(selectedRequest.requestBody, null, 2)
-                        : '// No request payload (GET or body empty)'}
-                    </pre>
+                    {typeof selectedRequest.requestBody === 'object' && selectedRequest.requestBody !== null ? (
+                      <div className="p-3 bg-devCodeBg rounded-lg border border-devBorder overflow-x-auto select-text">
+                        <JsonTree data={selectedRequest.requestBody} defaultExpandedDepth={2} />
+                      </div>
+                    ) : (
+                      <pre className="p-3 bg-devCodeBg rounded-lg border border-devBorder text-xs font-mono text-devText overflow-x-auto whitespace-pre-wrap select-text">
+                        {selectedRequest.requestBody !== undefined
+                          ? String(selectedRequest.requestBody)
+                          : '// No request payload (GET or body empty)'}
+                      </pre>
+                    )}
                   </div>
                 )}
 

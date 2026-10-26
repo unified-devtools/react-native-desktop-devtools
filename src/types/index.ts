@@ -11,7 +11,7 @@ export interface DeviceInfo {
 
 export interface ConsoleEntry {
   id: string;
-  level: 'log' | 'info' | 'warn' | 'error';
+  level: 'log' | 'info' | 'warn' | 'error' | 'debug';
   args: any[];
   timestamp: number;
   stack?: string;
@@ -43,9 +43,25 @@ export interface MockRule {
 
 export interface QueryEntry {
   key: string;
-  status: 'fetching' | 'stale' | 'fresh' | 'error';
+  queryHash?: string;
+  status: 'fetching' | 'stale' | 'fresh' | 'error' | 'paused' | 'inactive';
   data?: any;
   updatedAt: number;
+  observersCount?: number;
+  state?: {
+    status?: string;
+    fetchStatus?: string;
+    error?: any;
+    dataUpdatedAt?: number;
+    errorUpdatedAt?: number;
+    fetchFailureCount?: number;
+    isInvalidated?: boolean;
+  };
+  options?: {
+    gcTime?: number;
+    staleTime?: number;
+    retry?: any;
+  };
 }
 
 export interface CustomPluginColumn {

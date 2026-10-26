@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    unified_devtools_desktop_lib::run()
+    react_native_desktop_devtools_lib::run()
 }
