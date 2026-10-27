@@ -80,6 +80,11 @@ export interface CustomPluginSchema {
   id: string;
   title: string;
   icon?: string;
+  description?: string;
+  version?: string;
+  author?: string;
+  repository?: string;
+  isInstalled?: boolean;
   columns: CustomPluginColumn[];
   actions: CustomPluginAction[];
 }

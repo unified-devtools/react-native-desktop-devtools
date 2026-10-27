@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { Sidebar } from './components/Sidebar';
@@ -6,6 +6,7 @@ import { ConsoleView } from './components/ConsoleView';
 import { NetworkView } from './components/NetworkView';
 import { QueryView } from './components/QueryView';
 import { CustomPluginView } from './components/CustomPluginView';
+import { PluginStoreModal, FEATURED_PLUGINS } from './components/PluginStoreModal';
 import { ThemeProvider } from './theme/ThemeContext';
 import { 
   TabType, 
@@ -19,8 +20,9 @@ import {
 
 export function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('logs');
-  const [selectedCustomPluginId, setSelectedCustomPluginId] = useState<string | undefined>();
+  const [selectedCustomPluginId, setSelectedCustomPluginId] = useState<string | undefined>('mmkv');
   const [isPaused, setIsPaused] = useState(false);
+  const [isPluginStoreOpen, setIsPluginStoreOpen] = useState(false);
 
   // Connected Devices
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
@@ -31,8 +33,65 @@ export function App() {
   const [networkRequests, setNetworkRequests] = useState<NetworkEntry[]>([]);
   const [mockRules, setMockRules] = useState<MockRule[]>([]);
   const [queries, setQueries] = useState<QueryEntry[]>([]);
-  const [customPlugins, setCustomPlugins] = useState<CustomPluginSchema[]>([]);
-  const [customEvents, setCustomEvents] = useState<Record<string, any[]>>({});
+  const [runtimePlugins, setRuntimePlugins] = useState<CustomPluginSchema[]>([]);
+  
+  // Installed Plugins from GitHub or Store (persisted locally)
+  const [installedPlugins, setInstalledPlugins] = useState<CustomPluginSchema[]>(() => {
+    try {
+      const saved = localStorage.getItem('devtools_installed_plugins');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [FEATURED_PLUGINS[0]]; // MMKV Storage pre-installed by default
+  });
+
+  const [customEvents, setCustomEvents] = useState<Record<string, any[]>>(() => {
+    // Initial sample entries for MMKV
+    return {
+      mmkv: [
+        { key: 'user_session_token', type: 'string', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', size: '142 B', timestamp: Date.now() - 32000 },
+        { key: 'theme_mode', type: 'string', value: 'dark', size: '4 B', timestamp: Date.now() - 90000 },
+        { key: 'app_launch_count', type: 'number', value: 28, size: '4 B', timestamp: Date.now() - 4000 },
+        { key: 'cached_user_profile', type: 'object', value: { id: 'usr_102', name: 'Alex Archie', role: 'engineer' }, size: '210 B', timestamp: Date.now() - 15000 },
+      ],
+    };
+  });
+
+  // Combine runtime plugins from mobile client and installed plugins from GitHub
+  const customPlugins = useMemo(() => {
+    const map = new Map<string, CustomPluginSchema>();
+    installedPlugins.forEach((p) => map.set(p.id, p));
+    runtimePlugins.forEach((p) => map.set(p.id, p));
+    return Array.from(map.values());
+  }, [installedPlugins, runtimePlugins]);
+
+  // Install a plugin from GitHub
+  const handleInstallPlugin = (plugin: CustomPluginSchema) => {
+    setInstalledPlugins((prev) => {
+      if (prev.some((p) => p.id === plugin.id)) return prev;
+      const updated = [...prev, { ...plugin, isInstalled: true }];
+      try {
+        localStorage.setItem('devtools_installed_plugins', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    setSelectedCustomPluginId(plugin.id);
+    setCurrentTab('custom');
+  };
+
+  // Uninstall a plugin
+  const handleUninstallPlugin = (pluginId: string) => {
+    setInstalledPlugins((prev) => {
+      const updated = prev.filter((p) => p.id !== pluginId);
+      try {
+        localStorage.setItem('devtools_installed_plugins', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    if (selectedCustomPluginId === pluginId) {
+      setSelectedCustomPluginId(undefined);
+      setCurrentTab('logs');
+    }
+  };
 
   // Helper to send messages back to React Native
   const sendToMobile = useCallback(async (packet: any) => {
@@ -98,7 +157,7 @@ export function App() {
             )
           );
           if (schemas && Array.isArray(schemas)) {
-            setCustomPlugins(schemas);
+            setRuntimePlugins(schemas);
           }
           // Immediately sync active mock rules upon client handshake
           sendToMobile({
@@ -256,6 +315,24 @@ export function App() {
 
   const handleTriggerCustomAction = (pluginId: string, actionId: string) => {
     sendToMobile({ type: 'custom:action', payload: { pluginId, actionId } });
+
+    // Local simulation for MMKV when testing or disconnected
+    if (pluginId === 'mmkv') {
+      if (actionId === 'clear_all') {
+        setCustomEvents((prev) => ({ ...prev, mmkv: [] }));
+      } else if (actionId === 'refresh') {
+        setCustomEvents((prev) => ({
+          ...prev,
+          mmkv: [
+            { key: 'user_session_token', type: 'string', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', size: '142 B', timestamp: Date.now() },
+            { key: 'theme_mode', type: 'string', value: 'dark', size: '4 B', timestamp: Date.now() - 45000 },
+            { key: 'app_launch_count', type: 'number', value: Math.floor(Math.random() * 50) + 1, size: '4 B', timestamp: Date.now() },
+            { key: 'cached_user_profile', type: 'object', value: { id: 'usr_102', name: 'Alex Archie', role: 'engineer' }, size: '210 B', timestamp: Date.now() },
+            { key: 'feature_new_navigation', type: 'boolean', value: true, size: '1 B', timestamp: Date.now() },
+          ],
+        }));
+      }
+    }
   };
 
   const activeCustomSchema = customPlugins.find((p) => p.id === selectedCustomPluginId);
@@ -279,6 +356,7 @@ export function App() {
           isPaused={isPaused}
           onTogglePause={() => setIsPaused(!isPaused)}
           onClearCurrent={handleClearCurrent}
+          onOpenPluginStore={() => setIsPluginStoreOpen(true)}
         />
 
         {/* Main Workspace Area */}
@@ -316,6 +394,15 @@ export function App() {
             />
           )}
         </main>
+
+        {/* Plugin Store & GitHub Installer Modal */}
+        <PluginStoreModal
+          isOpen={isPluginStoreOpen}
+          onClose={() => setIsPluginStoreOpen(false)}
+          installedPlugins={installedPlugins}
+          onInstallPlugin={handleInstallPlugin}
+          onUninstallPlugin={handleUninstallPlugin}
+        />
       </div>
     </ThemeProvider>
   );

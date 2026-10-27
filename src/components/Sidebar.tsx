@@ -14,7 +14,8 @@ import {
   PanelLeftClose,
   PanelLeft,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from 'lucide-react';
 import { TabType, DeviceInfo, CustomPluginSchema } from '../types';
 import { useTheme } from '../theme/ThemeContext';
@@ -34,6 +35,7 @@ interface SidebarProps {
   isPaused: boolean;
   onTogglePause: () => void;
   onClearCurrent: () => void;
+  onOpenPluginStore?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -51,6 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isPaused,
   onTogglePause,
   onClearCurrent,
+  onOpenPluginStore,
 }) => {
   const { isDark, toggleTheme } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
@@ -376,65 +379,105 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Custom Plugins Accordion */}
-        {customPlugins.length > 0 && (
-          <div className="pt-2">
-            {!isCollapsed && (
+        <div className="pt-2">
+          {!isCollapsed ? (
+            <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-devTextMuted px-2 py-1 rounded hover:bg-devCardHover/50 transition-colors group">
               <button
                 type="button"
                 onClick={toggleCustomAccordion}
-                className="w-full flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-devTextMuted hover:text-devText px-2 py-1.5 rounded hover:bg-devCardHover/50 transition-colors group cursor-pointer"
+                className="flex items-center space-x-1.5 flex-1 text-left cursor-pointer"
               >
-                <div className="flex items-center space-x-1.5">
-                  <span>Custom Plugins</span>
-                  <span className="text-[9px] font-mono font-normal text-devTextMuted/70 bg-devCard border border-devBorder px-1 rounded">
-                    {customPlugins.length}
-                  </span>
-                </div>
+                <span>Custom Plugins</span>
+                <span className="text-[9px] font-mono font-normal text-devTextMuted/70 bg-devCard border border-devBorder px-1 rounded">
+                  {customPlugins.length}
+                </span>
                 {isCustomOpen ? (
                   <ChevronDown className="w-3 h-3 text-devTextMuted group-hover:text-devText transition-transform" />
                 ) : (
                   <ChevronRight className="w-3 h-3 text-devTextMuted group-hover:text-devText transition-transform" />
                 )}
               </button>
-            )}
 
-            {(isCustomOpen || isCollapsed) && (
-              <div className="space-y-1 mt-1">
-                {customPlugins.map((plugin) => (
-                  <div key={plugin.id} className="relative group">
-                    <button
-                      onClick={() => {
-                        onSelectTab('custom');
-                        onSelectCustomPlugin(plugin.id);
-                      }}
-                      title={isCollapsed ? plugin.title : undefined}
-                      className={`w-full flex items-center rounded-md transition-colors ${
-                        isCollapsed
-                          ? 'p-2.5 justify-center'
-                          : 'justify-between px-2.5 py-2 text-xs font-medium'
-                      } ${
-                        currentTab === 'custom' && selectedCustomPluginId === plugin.id
-                          ? 'bg-devAccent/15 text-devAccent border border-devAccent/30 font-semibold'
-                          : 'text-devText hover:bg-devCardHover'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2.5 truncate">
-                        <Puzzle className="w-4 h-4 text-fuchsia-500 shrink-0" />
-                        {!isCollapsed && <span className="truncate">{plugin.title}</span>}
-                      </div>
-                    </button>
-
-                    {isCollapsed && (
-                      <div className="absolute left-full ml-3 px-2.5 py-1 bg-devSurface border border-devBorder rounded text-xs text-devText shadow-xl whitespace-nowrap z-50 pointer-events-none hidden group-hover:flex items-center">
-                        <span className="font-medium">{plugin.title}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+              {onOpenPluginStore && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenPluginStore();
+                  }}
+                  title="Install Plugin from GitHub / Store"
+                  className="p-1 rounded hover:bg-devSurface border border-transparent hover:border-devBorder text-devTextMuted hover:text-devAccent transition-colors shrink-0 cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ) : (
+            onOpenPluginStore && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={onOpenPluginStore}
+                  title="Install Plugin from GitHub"
+                  className="p-2 rounded-lg border border-devBorder bg-devCard hover:bg-devCardHover text-devTextMuted hover:text-devAccent transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
               </div>
-            )}
-          </div>
-        )}
+            )
+          )}
+
+          {(isCustomOpen || isCollapsed) && (
+            <div className="space-y-1 mt-1">
+              {customPlugins.length === 0 && !isCollapsed && (
+                <div className="px-2 py-2 text-[11px] text-devTextMuted/70 border border-dashed border-devBorder/60 rounded text-center">
+                  <p>No custom plugins</p>
+                  {onOpenPluginStore && (
+                    <button
+                      type="button"
+                      onClick={onOpenPluginStore}
+                      className="text-devAccent hover:underline text-[10px] font-medium mt-0.5 block mx-auto cursor-pointer"
+                    >
+                      + Install from GitHub
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {customPlugins.map((plugin) => (
+                <div key={plugin.id} className="relative group">
+                  <button
+                    onClick={() => {
+                      onSelectTab('custom');
+                      onSelectCustomPlugin(plugin.id);
+                    }}
+                    title={isCollapsed ? plugin.title : undefined}
+                    className={`w-full flex items-center rounded-md transition-colors ${
+                      isCollapsed
+                        ? 'p-2.5 justify-center'
+                        : 'justify-between px-2.5 py-2 text-xs font-medium'
+                    } ${
+                      currentTab === 'custom' && selectedCustomPluginId === plugin.id
+                        ? 'bg-devAccent/15 text-devAccent border border-devAccent/30 font-semibold'
+                        : 'text-devText hover:bg-devCardHover'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5 truncate">
+                      <Puzzle className="w-4 h-4 text-fuchsia-500 shrink-0" />
+                      {!isCollapsed && <span className="truncate">{plugin.title}</span>}
+                    </div>
+                  </button>
+
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-3 px-2.5 py-1 bg-devSurface border border-devBorder rounded text-xs text-devText shadow-xl whitespace-nowrap z-50 pointer-events-none hidden group-hover:flex items-center">
+                      <span className="font-medium">{plugin.title}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Quick Action Footer Controls */}
