@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { CustomPluginSchema } from '../types';
-import { Search, Puzzle, Play } from 'lucide-react';
+import { Search, Play } from 'lucide-react';
 import { JsonTree } from './JsonTree';
+import { PluginIcon } from './PluginIcon';
 
 interface CustomPluginViewProps {
   schema: CustomPluginSchema;
@@ -32,11 +33,16 @@ export const CustomPluginView: React.FC<CustomPluginViewProps> = ({
     <div className="flex-1 flex flex-col h-full bg-devBg overflow-hidden transition-colors duration-150">
       {/* Top Header & Actions Bar */}
       <div className="h-11 px-4 border-b border-devBorder bg-devSurface flex items-center justify-between space-x-4">
+        <div className="flex items-center space-x-2 shrink-0">
+          <PluginIcon icon={schema.icon} id={schema.id} className="w-4 h-4 shrink-0" />
+          <span className="text-xs font-semibold text-devText whitespace-nowrap">{schema.title}</span>
+        </div>
+
         <div className="relative flex-1 max-w-md">
           <Search className="w-3.5 h-3.5 text-devTextMuted absolute left-2.5 top-2.5" />
           <input
             type="text"
-            placeholder={`Filter ${schema.title} events...`}
+            placeholder={`Filter ${schema.title} entries...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-devCard border border-devBorder rounded py-1 pl-8 pr-3 text-xs text-devText placeholder-devTextMuted focus:outline-none focus:border-devAccent"
@@ -64,9 +70,9 @@ export const CustomPluginView: React.FC<CustomPluginViewProps> = ({
         <div className="w-1/2 border-r border-devBorder overflow-y-auto bg-devBg">
           {filteredEvents.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-devTextMuted text-xs p-8 text-center">
-              <Puzzle className="w-8 h-8 mb-2 stroke-[1.5] text-devTextMuted opacity-60" />
-              <p className="font-medium">No {schema.title} events recorded</p>
-              <p className="text-[11px] text-devTextMuted/80 mt-1">Events pushed from the custom plugin will render here automatically.</p>
+              <PluginIcon icon={schema.icon} id={schema.id} className="w-8 h-8 mb-2 stroke-[1.5] opacity-60" />
+              <p className="font-medium">No {schema.title} entries recorded</p>
+              <p className="text-[11px] text-devTextMuted/80 mt-1">Data pushed from the plugin will render here automatically.</p>
             </div>
           ) : (
             <table className="w-full text-left border-collapse text-xs">
@@ -89,10 +95,19 @@ export const CustomPluginView: React.FC<CustomPluginViewProps> = ({
                       }`}
                     >
                       {schema.columns.map((col) => {
-                        const val = evt[col.key];
+                        const val = evt ? evt[col.key] : undefined;
                         let rendered: React.ReactNode = String(val ?? '');
-                        if (col.type === 'timestamp') {
-                          rendered = new Date(val).toLocaleTimeString();
+
+                        if (val === undefined || val === null) {
+                          rendered = <span className="text-devTextMuted/40 italic text-[11px]">—</span>;
+                        } else if (col.type === 'timestamp') {
+                          const d = new Date(val);
+                          const isValid = (typeof val === 'number' || typeof val === 'string') && !isNaN(d.getTime());
+                          rendered = isValid ? (
+                            <span className="font-mono text-devTextDim">{d.toLocaleTimeString()}</span>
+                          ) : (
+                            <span className="text-devTextMuted/40 italic text-[11px]">—</span>
+                          );
                         } else if (col.type === 'badge') {
                           rendered = (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-fuchsia-500/20 text-fuchsia-500 border border-fuchsia-500/30 font-mono">
@@ -100,7 +115,13 @@ export const CustomPluginView: React.FC<CustomPluginViewProps> = ({
                             </span>
                           );
                         } else if (col.type === 'json') {
-                          rendered = <span className="font-mono text-devTextDim truncate max-w-[150px] inline-block">{JSON.stringify(val)}</span>;
+                          rendered = (
+                            <span className="font-mono text-devTextDim truncate max-w-[150px] inline-block">
+                              {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                            </span>
+                          );
+                        } else if (col.type === 'number') {
+                          rendered = <span className="font-mono text-devText">{Number(val).toLocaleString()}</span>;
                         }
 
                         return (
@@ -118,15 +139,15 @@ export const CustomPluginView: React.FC<CustomPluginViewProps> = ({
         </div>
 
         {/* Right: Selected Event JSON Inspector */}
-        <div className="w-1/2 flex flex-col bg-devSurface/40 overflow-hidden p-4 select-text">
+        <div className="w-1/2 flex flex-col bg-devSurface/40 overflow-y-auto p-4 select-text">
           {selectedEvent ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="space-y-3 flex-1 flex flex-col">
+              <div className="flex items-center justify-between shrink-0">
                 <h3 className="text-[11px] font-semibold uppercase tracking-wider text-devTextDim">
                   Event Payload Inspector
                 </h3>
               </div>
-              <div className="p-3 bg-devCodeBg rounded-lg border border-devBorder overflow-x-auto select-text">
+              <div className="p-3 bg-devCodeBg rounded-lg border border-devBorder overflow-x-auto select-text flex-1">
                 <JsonTree data={selectedEvent} defaultExpandedDepth={2} />
               </div>
             </div>

@@ -6,7 +6,7 @@ import { ConsoleView } from './components/ConsoleView';
 import { NetworkView } from './components/NetworkView';
 import { QueryView } from './components/QueryView';
 import { CustomPluginView } from './components/CustomPluginView';
-import { PluginStoreModal, FEATURED_PLUGINS } from './components/PluginStoreModal';
+import { PluginStoreModal } from './components/PluginStoreModal';
 import { ThemeProvider } from './theme/ThemeContext';
 import { 
   TabType, 
@@ -20,7 +20,7 @@ import {
 
 export function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('logs');
-  const [selectedCustomPluginId, setSelectedCustomPluginId] = useState<string | undefined>('mmkv');
+  const [selectedCustomPluginId, setSelectedCustomPluginId] = useState<string | undefined>();
   const [isPaused, setIsPaused] = useState(false);
   const [isPluginStoreOpen, setIsPluginStoreOpen] = useState(false);
 
@@ -35,32 +35,36 @@ export function App() {
   const [queries, setQueries] = useState<QueryEntry[]>([]);
   const [runtimePlugins, setRuntimePlugins] = useState<CustomPluginSchema[]>([]);
   
-  // Installed Plugins from GitHub or Store (persisted locally)
+  // Installed Plugins downloaded from GitHub (persisted locally)
   const [installedPlugins, setInstalledPlugins] = useState<CustomPluginSchema[]>(() => {
     try {
       const saved = localStorage.getItem('devtools_installed_plugins');
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [FEATURED_PLUGINS[0]]; // MMKV Storage pre-installed by default
+    return [];
   });
 
-  const [customEvents, setCustomEvents] = useState<Record<string, any[]>>(() => {
-    // Initial sample entries for MMKV
-    return {
-      mmkv: [
-        { key: 'user_session_token', type: 'string', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', size: '142 B', timestamp: Date.now() - 32000 },
-        { key: 'theme_mode', type: 'string', value: 'dark', size: '4 B', timestamp: Date.now() - 90000 },
-        { key: 'app_launch_count', type: 'number', value: 28, size: '4 B', timestamp: Date.now() - 4000 },
-        { key: 'cached_user_profile', type: 'object', value: { id: 'usr_102', name: 'Alex Archie', role: 'engineer' }, size: '210 B', timestamp: Date.now() - 15000 },
-      ],
-    };
-  });
+  // Dynamic live event store for custom plugins (populated exclusively by mobile client)
+  const [customEvents, setCustomEvents] = useState<Record<string, any[]>>({});
 
   // Combine runtime plugins from mobile client and installed plugins from GitHub
   const customPlugins = useMemo(() => {
     const map = new Map<string, CustomPluginSchema>();
-    installedPlugins.forEach((p) => map.set(p.id, p));
-    runtimePlugins.forEach((p) => map.set(p.id, p));
+    installedPlugins.forEach((p) => map.set(p.id, { ...p }));
+    runtimePlugins.forEach((p) => {
+      const existing = map.get(p.id);
+      if (existing) {
+        map.set(p.id, {
+          ...existing,
+          ...p,
+          icon: p.icon || existing.icon,
+          columns: p.columns?.length ? p.columns : existing.columns,
+          actions: p.actions?.length ? p.actions : existing.actions,
+        });
+      } else {
+        map.set(p.id, p);
+      }
+    });
     return Array.from(map.values());
   }, [installedPlugins, runtimePlugins]);
 
@@ -235,13 +239,40 @@ export function App() {
           });
         }
 
-        // Custom Plugin Event
-        else if (packet.type === 'custom:event') {
-          const { pluginId, event: customData } = packet.payload;
-          setCustomEvents((prev) => ({
-            ...prev,
-            [pluginId]: [customData, ...(prev[pluginId] || [])].slice(0, 1000),
-          }));
+        // Custom Plugin Event & Data Stream
+        else if (packet.type === 'custom:event' || packet.type === 'custom:data') {
+          const { pluginId, event: customData, data, rows, items } = packet.payload || {};
+          let incoming = customData !== undefined ? customData : (data !== undefined ? data : (rows !== undefined ? rows : items));
+
+          if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
+            if (Array.isArray(incoming.rows)) incoming = incoming.rows;
+            else if (Array.isArray(incoming.data)) incoming = incoming.data;
+            else if (Array.isArray(incoming.items)) incoming = incoming.items;
+          }
+
+          if (Array.isArray(incoming)) {
+            const flatRows = incoming.flatMap((item) => (Array.isArray(item) ? item : [item]));
+            setCustomEvents((prev) => ({
+              ...prev,
+              [pluginId]: flatRows,
+            }));
+          } else if (incoming !== undefined) {
+            setCustomEvents((prev) => ({
+              ...prev,
+              [pluginId]: [incoming, ...(prev[pluginId] || [])].slice(0, 1000),
+            }));
+          }
+        }
+
+        // Custom Plugin Clear
+        else if (packet.type === 'custom:clear') {
+          const { pluginId } = packet.payload || {};
+          if (pluginId) {
+            setCustomEvents((prev) => ({
+              ...prev,
+              [pluginId]: [],
+            }));
+          }
         }
       } catch (err) {
         console.error('Error parsing inbound devtools packet:', err);
@@ -315,24 +346,6 @@ export function App() {
 
   const handleTriggerCustomAction = (pluginId: string, actionId: string) => {
     sendToMobile({ type: 'custom:action', payload: { pluginId, actionId } });
-
-    // Local simulation for MMKV when testing or disconnected
-    if (pluginId === 'mmkv') {
-      if (actionId === 'clear_all') {
-        setCustomEvents((prev) => ({ ...prev, mmkv: [] }));
-      } else if (actionId === 'refresh') {
-        setCustomEvents((prev) => ({
-          ...prev,
-          mmkv: [
-            { key: 'user_session_token', type: 'string', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', size: '142 B', timestamp: Date.now() },
-            { key: 'theme_mode', type: 'string', value: 'dark', size: '4 B', timestamp: Date.now() - 45000 },
-            { key: 'app_launch_count', type: 'number', value: Math.floor(Math.random() * 50) + 1, size: '4 B', timestamp: Date.now() },
-            { key: 'cached_user_profile', type: 'object', value: { id: 'usr_102', name: 'Alex Archie', role: 'engineer' }, size: '210 B', timestamp: Date.now() },
-            { key: 'feature_new_navigation', type: 'boolean', value: true, size: '1 B', timestamp: Date.now() },
-          ],
-        }));
-      }
-    }
   };
 
   const activeCustomSchema = customPlugins.find((p) => p.id === selectedCustomPluginId);

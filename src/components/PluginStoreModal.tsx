@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Download, 
@@ -7,74 +7,26 @@ import {
   AlertCircle, 
   Boxes, 
   Trash2, 
-  Sparkles,
-  Database,
-  Layers,
-  Flag,
-  Code2
+  Sparkles, 
+  Code2,
+  RefreshCw,
+  ArrowUpCircle
 } from 'lucide-react';
 import { CustomPluginSchema } from '../types';
+import { PluginIcon } from './PluginIcon';
 
-export const FEATURED_PLUGINS: CustomPluginSchema[] = [
-  {
-    id: 'mmkv',
-    title: 'MMKV Storage',
-    description: 'Inspect, query, and modify key-value pairs stored in react-native-mmkv in real time.',
-    icon: 'database',
-    version: '1.0.0',
-    author: 'mrousavy / community',
-    repository: 'https://github.com/mrousavy/react-native-mmkv',
-    columns: [
-      { key: 'key', label: 'Key', type: 'text' },
-      { key: 'type', label: 'Type', type: 'badge' },
-      { key: 'value', label: 'Value', type: 'json' },
-      { key: 'size', label: 'Size', type: 'text' },
-      { key: 'timestamp', label: 'Last Modified', type: 'timestamp' },
-    ],
-    actions: [
-      { id: 'refresh', label: 'Reload Keys' },
-      { id: 'clear_all', label: 'Wipe Storage' },
-    ],
-  },
-  {
-    id: 'async_storage',
-    title: 'AsyncStorage',
-    description: 'Explore all serialized keys, string payloads, and storage entries in AsyncStorage.',
-    icon: 'layers',
-    version: '1.0.0',
-    author: 'react-native-async-storage',
-    repository: 'https://github.com/react-native-async-storage/async-storage',
-    columns: [
-      { key: 'key', label: 'Storage Key', type: 'text' },
-      { key: 'value', label: 'Value', type: 'json' },
-      { key: 'bytes', label: 'Bytes', type: 'number' },
-      { key: 'timestamp', label: 'Timestamp', type: 'timestamp' },
-    ],
-    actions: [
-      { id: 'refresh', label: 'Reload Keys' },
-      { id: 'clear', label: 'Clear All' },
-    ],
-  },
-  {
-    id: 'feature_flags',
-    title: 'Feature Flags',
-    description: 'Real-time toggle control and live state inspection for remote feature gates and A/B rollout variants.',
-    icon: 'flag',
-    version: '1.1.0',
-    author: 'unified-devtools',
-    repository: 'https://github.com/unified-devtools/react-native-core',
-    columns: [
-      { key: 'flag', label: 'Flag Key', type: 'text' },
-      { key: 'enabled', label: 'Status', type: 'badge' },
-      { key: 'description', label: 'Description', type: 'text' },
-      { key: 'rollout', label: 'Rollout %', type: 'number' },
-    ],
-    actions: [
-      { id: 'sync', label: 'Sync with Remote' },
-      { id: 'reset', label: 'Reset to Defaults' },
-    ],
-  },
-];
+export const OFFICIAL_REGISTRY_URL = 'https://raw.githubusercontent.com/unified-devtools/plugins/main/registry.json';
+
+export interface RegistryPluginItem {
+  id: string;
+  title: string;
+  version: string;
+  description: string;
+  author: string;
+  icon?: string;
+  manifestUrl: string;
+  repository?: string;
+}
 
 interface PluginStoreModalProps {
   isOpen: boolean;
@@ -91,16 +43,90 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
   onInstallPlugin,
   onUninstallPlugin,
 }) => {
-  const [activeTab, setActiveTab] = useState<'featured' | 'github' | 'installed'>('featured');
+  const [activeTab, setActiveTab] = useState<'registry' | 'github' | 'installed'>('registry');
+  
+  // Registry state fetched from GitHub
+  const [registryPlugins, setRegistryPlugins] = useState<RegistryPluginItem[]>([]);
+  const [isLoadingRegistry, setIsLoadingRegistry] = useState(false);
+  const [registryError, setRegistryError] = useState<string | null>(null);
+
+  // Installing state per plugin ID
+  const [installingId, setInstallingId] = useState<string | null>(null);
+
+  // GitHub Custom URL input state
   const [githubUrl, setGithubUrl] = useState('');
-  const [isFetching, setIsFetching] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isFetchingCustom, setIsFetchingCustom] = useState(false);
+  const [customFetchError, setCustomFetchError] = useState<string | null>(null);
   const [previewPlugin, setPreviewPlugin] = useState<CustomPluginSchema | null>(null);
+
+  // Fetch official plugin catalog from GitHub
+  const fetchRegistry = async () => {
+    setIsLoadingRegistry(true);
+    setRegistryError(null);
+    try {
+      const res = await fetch(`${OFFICIAL_REGISTRY_URL}?t=${Date.now()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (Array.isArray(data.plugins)) {
+        setRegistryPlugins(data.plugins);
+      }
+    } catch (err: any) {
+      setRegistryError('Failed to fetch official plugins list from GitHub. Check your internet connection.');
+    } finally {
+      setIsLoadingRegistry(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchRegistry();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const isInstalled = (id: string) => installedPlugins.some((p) => p.id === id);
 
+  const getInstalledVersion = (id: string): string | undefined => {
+    return installedPlugins.find((p) => p.id === id)?.version;
+  };
+
+  const hasUpdate = (reg: RegistryPluginItem): boolean => {
+    const installedVer = getInstalledVersion(reg.id);
+    if (!installedVer) return false;
+    return installedVer !== reg.version;
+  };
+
+  // Download manifest from GitHub and install
+  const handleDownloadAndInstallFromRegistry = async (reg: RegistryPluginItem) => {
+    setInstallingId(reg.id);
+    try {
+      const res = await fetch(`${reg.manifestUrl}?t=${Date.now()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const manifest = await res.json();
+
+      const plugin: CustomPluginSchema = {
+        id: manifest.id || reg.id,
+        title: manifest.title || reg.title,
+        description: manifest.description || reg.description,
+        version: manifest.version || reg.version,
+        author: manifest.author || reg.author,
+        repository: manifest.repository || reg.repository,
+        icon: manifest.icon || reg.icon || 'puzzle',
+        columns: Array.isArray(manifest.columns) ? manifest.columns : [],
+        actions: Array.isArray(manifest.actions) ? manifest.actions : [],
+        isInstalled: true,
+      };
+
+      onInstallPlugin(plugin);
+    } catch (err: any) {
+      alert(`Failed to download ${reg.title} plugin from GitHub: ${err.message}`);
+    } finally {
+      setInstallingId(null);
+    }
+  };
+
+  // Parse GitHub input URLs for custom plugins
   const parseGithubCandidateUrls = (input: string): string[] => {
     const trimmed = input.trim();
     if (trimmed.startsWith('https://raw.githubusercontent.com/') && trimmed.endsWith('.json')) {
@@ -136,17 +162,18 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
     return [];
   };
 
-  const handleFetchFromGithub = async () => {
+  // Fetch from custom GitHub repo
+  const handleFetchFromCustomGithub = async () => {
     if (!githubUrl.trim()) return;
 
-    setIsFetching(true);
-    setFetchError(null);
+    setIsFetchingCustom(true);
+    setCustomFetchError(null);
     setPreviewPlugin(null);
 
     const candidates = parseGithubCandidateUrls(githubUrl);
     if (candidates.length === 0) {
-      setFetchError('Please enter a valid GitHub repository URL (e.g. https://github.com/owner/repo) or owner/repo format.');
-      setIsFetching(false);
+      setCustomFetchError('Please enter a valid GitHub repository URL (e.g. https://github.com/owner/repo) or owner/repo format.');
+      setIsFetchingCustom(false);
       return;
     }
 
@@ -163,14 +190,8 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
     }
 
     if (!manifest) {
-      setFetchError('Could not find devtools-plugin.json or plugin.json in repository (main or master branches).');
-      setIsFetching(false);
-      return;
-    }
-
-    if (!manifest.id && !manifest.title) {
-      setFetchError('Invalid plugin schema: manifest must specify at least "title" or "id".');
-      setIsFetching(false);
+      setCustomFetchError('Could not find devtools-plugin.json or plugin.json in repository (main or master branches).');
+      setIsFetchingCustom(false);
       return;
     }
 
@@ -182,32 +203,17 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
       author: manifest.author || 'GitHub Contributor',
       repository: githubUrl,
       icon: manifest.icon || 'puzzle',
-      columns: Array.isArray(manifest.columns) ? manifest.columns : [
-        { key: 'key', label: 'Key', type: 'text' },
-        { key: 'value', label: 'Value', type: 'json' },
-        { key: 'timestamp', label: 'Timestamp', type: 'timestamp' },
-      ],
-      actions: Array.isArray(manifest.actions) ? manifest.actions : [
-        { id: 'refresh', label: 'Reload' },
-      ],
+      columns: Array.isArray(manifest.columns) ? manifest.columns : [],
+      actions: Array.isArray(manifest.actions) ? manifest.actions : [],
       isInstalled: true,
     };
 
     setPreviewPlugin(plugin);
-    setIsFetching(false);
+    setIsFetchingCustom(false);
   };
 
-  const getPluginIcon = (iconName?: string) => {
-    switch (iconName) {
-      case 'database':
-        return <Database className="w-5 h-5 text-amber-500" />;
-      case 'layers':
-        return <Layers className="w-5 h-5 text-sky-500" />;
-      case 'flag':
-        return <Flag className="w-5 h-5 text-fuchsia-500" />;
-      default:
-        return <Boxes className="w-5 h-5 text-devAccent" />;
-    }
+  const getPluginIcon = (iconName?: string, id?: string) => {
+    return <PluginIcon icon={iconName} id={id} className="w-5 h-5 shrink-0" />;
   };
 
   return (
@@ -221,8 +227,8 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
               <Boxes className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-devText">Plugin Store & Manager</h2>
-              <p className="text-xs text-devTextMuted">Install and manage custom devtools plugins from GitHub or community presets</p>
+              <h2 className="text-sm font-bold text-devText">Desktop Plugins Store</h2>
+              <p className="text-xs text-devTextMuted">Download and update React Native plugins live from GitHub (<span className="font-mono text-devAccent">unified-devtools/plugins</span>)</p>
             </div>
           </div>
 
@@ -237,15 +243,15 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
         {/* Tab Switcher */}
         <div className="px-5 border-b border-devBorder flex items-center space-x-4 bg-devSurface">
           <button
-            onClick={() => setActiveTab('featured')}
+            onClick={() => setActiveTab('registry')}
             className={`py-2.5 text-xs font-semibold border-b-2 flex items-center space-x-1.5 transition-colors ${
-              activeTab === 'featured'
+              activeTab === 'registry'
                 ? 'border-devAccent text-devAccent'
                 : 'border-transparent text-devTextMuted hover:text-devText'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Featured Plugins</span>
+            <span>GitHub Registry ({registryPlugins.length})</span>
           </button>
 
           <button
@@ -257,7 +263,7 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
             }`}
           >
             <Code2 className="w-3.5 h-3.5" />
-            <span>Download from GitHub</span>
+            <span>Custom GitHub Repo</span>
           </button>
 
           <button
@@ -276,40 +282,69 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-5 bg-devBg/50">
           
-          {/* TAB 1: Featured Community Plugins */}
-          {activeTab === 'featured' && (
+          {/* TAB 1: Official GitHub Registry */}
+          {activeTab === 'registry' && (
             <div className="space-y-3">
-              <div className="text-xs text-devTextMuted mb-2">
-                Curated community plugins ready to install with zero setup:
+              <div className="flex items-center justify-between text-xs text-devTextMuted mb-2">
+                <span>Plugins published in <strong className="text-devText">unified-devtools/plugins</strong>:</span>
+                <button
+                  onClick={fetchRegistry}
+                  disabled={isLoadingRegistry}
+                  className="flex items-center space-x-1 text-devAccent hover:underline text-[11px]"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isLoadingRegistry ? 'animate-spin' : ''}`} />
+                  <span>Check Updates</span>
+                </button>
               </div>
 
-              {FEATURED_PLUGINS.map((plugin) => {
-                const installed = isInstalled(plugin.id);
+              {isLoadingRegistry && registryPlugins.length === 0 && (
+                <div className="p-8 text-center text-xs text-devTextMuted">
+                  <RefreshCw className="w-5 h-5 mx-auto mb-2 animate-spin text-devAccent" />
+                  <p>Connecting to GitHub plugin registry...</p>
+                </div>
+              )}
+
+              {registryError && (
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{registryError}</span>
+                </div>
+              )}
+
+              {registryPlugins.map((reg) => {
+                const installed = isInstalled(reg.id);
+                const updateNeeded = hasUpdate(reg);
+                const isInstalling = installingId === reg.id;
+
                 return (
                   <div
-                    key={plugin.id}
+                    key={reg.id}
                     className="p-4 rounded-xl border border-devBorder bg-devCard hover:border-devBorder/80 transition-all flex items-start justify-between space-x-4"
                   >
                     <div className="flex items-start space-x-3.5">
                       <div className="p-2.5 rounded-lg bg-devSurface border border-devBorder shrink-0">
-                        {getPluginIcon(plugin.icon)}
+                        {getPluginIcon(reg.icon, reg.id)}
                       </div>
 
                       <div>
                         <div className="flex items-center space-x-2">
-                          <h3 className="text-xs font-bold text-devText">{plugin.title}</h3>
+                          <h3 className="text-xs font-bold text-devText">{reg.title}</h3>
                           <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-devSurface border border-devBorder text-devTextMuted">
-                            v{plugin.version}
+                            v{reg.version}
                           </span>
+                          {updateNeeded && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                              Update Available
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-devTextDim mt-1 leading-relaxed">{plugin.description}</p>
+                        <p className="text-xs text-devTextDim mt-1 leading-relaxed">{reg.description}</p>
                         
-                        <div className="flex items-center space-x-3 mt-2.5 text-[11px] text-devTextMuted">
-                          <span>Columns: <strong className="text-devText">{plugin.columns.length}</strong></span>
-                          <span>Actions: <strong className="text-devText">{plugin.actions.length}</strong></span>
-                          {plugin.repository && (
+                        <div className="flex items-center space-x-3 mt-2 text-[11px] text-devTextMuted">
+                          <span>Author: <strong className="text-devText">{reg.author}</strong></span>
+                          {reg.repository && (
                             <a
-                              href={plugin.repository}
+                              href={reg.repository}
                               target="_blank"
                               rel="noreferrer"
                               className="flex items-center space-x-1 text-devAccent hover:underline"
@@ -323,9 +358,25 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
                     </div>
 
                     <div className="shrink-0 pt-1">
-                      {installed ? (
+                      {isInstalling ? (
                         <button
-                          onClick={() => onUninstallPlugin(plugin.id)}
+                          disabled
+                          className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-devCard border border-devBorder text-devTextMuted text-xs font-medium"
+                        >
+                          <RefreshCw className="w-3 h-3 animate-spin text-devAccent" />
+                          <span>Downloading...</span>
+                        </button>
+                      ) : updateNeeded ? (
+                        <button
+                          onClick={() => handleDownloadAndInstallFromRegistry(reg)}
+                          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-xs transition-colors"
+                        >
+                          <ArrowUpCircle className="w-3.5 h-3.5" />
+                          <span>Update</span>
+                        </button>
+                      ) : installed ? (
+                        <button
+                          onClick={() => onUninstallPlugin(reg.id)}
                           className="flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-devBorder bg-devSurface hover:bg-rose-500/10 hover:border-rose-500/30 text-devTextMuted hover:text-rose-400 text-xs font-medium transition-colors"
                         >
                           <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -333,7 +384,7 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
                         </button>
                       ) : (
                         <button
-                          onClick={() => onInstallPlugin(plugin)}
+                          onClick={() => handleDownloadAndInstallFromRegistry(reg)}
                           className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-devAccent hover:bg-devAccent/90 text-white text-xs font-semibold shadow-xs transition-colors"
                         >
                           <Download className="w-3.5 h-3.5" />
@@ -347,7 +398,7 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: Download from GitHub */}
+          {/* TAB 2: Download from Custom GitHub Repo */}
           {activeTab === 'github' && (
             <div className="space-y-4">
               <div>
@@ -362,41 +413,39 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
                       placeholder="e.g. https://github.com/mrousavy/react-native-mmkv or user/repo"
                       value={githubUrl}
                       onChange={(e) => setGithubUrl(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleFetchFromGithub()}
+                      onKeyDown={(e) => e.key === 'Enter' && handleFetchFromCustomGithub()}
                       className="w-full bg-devCard border border-devBorder rounded-lg py-2 pl-9 pr-3 text-xs text-devText placeholder-devTextMuted focus:outline-none focus:border-devAccent font-mono"
                     />
                   </div>
 
                   <button
-                    onClick={handleFetchFromGithub}
-                    disabled={isFetching || !githubUrl.trim()}
+                    onClick={handleFetchFromCustomGithub}
+                    disabled={isFetchingCustom || !githubUrl.trim()}
                     className="px-4 py-2 rounded-lg bg-devAccent hover:bg-devAccent/90 disabled:opacity-50 text-white text-xs font-semibold transition-colors shrink-0 flex items-center space-x-1.5"
                   >
-                    {isFetching ? (
+                    {isFetchingCustom ? (
                       <span>Fetching...</span>
                     ) : (
                       <>
                         <Download className="w-3.5 h-3.5" />
-                        <span>Fetch Plugin</span>
+                        <span>Fetch</span>
                       </>
                     )}
                   </button>
                 </div>
 
                 <p className="text-[11px] text-devTextMuted mt-1.5">
-                  DevTools checks the repo for <code className="font-mono text-devAccent">devtools-plugin.json</code> or <code className="font-mono text-devAccent">plugin.json</code> on main or master branches.
+                  Checks repository for <code className="font-mono text-devAccent">devtools-plugin.json</code> or <code className="font-mono text-devAccent">plugin.json</code> on main or master.
                 </p>
               </div>
 
-              {/* Error Alert */}
-              {fetchError && (
+              {customFetchError && (
                 <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-start space-x-2">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>{fetchError}</span>
+                  <span>{customFetchError}</span>
                 </div>
               )}
 
-              {/* Preview Card */}
               {previewPlugin && (
                 <div className="p-4 rounded-xl border border-devAccent/40 bg-devCard shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
@@ -425,30 +474,6 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
                   </div>
 
                   <p className="text-xs text-devTextDim">{previewPlugin.description}</p>
-
-                  <div className="pt-2 border-t border-devBorder text-[11px] space-y-1">
-                    <div className="text-devTextMuted font-semibold uppercase text-[10px]">Columns ({previewPlugin.columns.length}):</div>
-                    <div className="flex flex-wrap gap-1">
-                      {previewPlugin.columns.map((c) => (
-                        <span key={c.key} className="bg-devSurface border border-devBorder px-1.5 py-0.5 rounded text-devText font-mono text-[10px]">
-                          {c.label} ({c.type})
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {previewPlugin.actions.length > 0 && (
-                    <div className="pt-1 text-[11px] space-y-1">
-                      <div className="text-devTextMuted font-semibold uppercase text-[10px]">Actions ({previewPlugin.actions.length}):</div>
-                      <div className="flex flex-wrap gap-1">
-                        {previewPlugin.actions.map((a) => (
-                          <span key={a.id} className="bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 px-1.5 py-0.5 rounded font-mono text-[10px]">
-                            {a.label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -461,7 +486,7 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
                 <div className="p-8 text-center text-devTextMuted text-xs">
                   <Boxes className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p className="font-semibold text-devText">No plugins installed yet</p>
-                  <p className="text-[11px] mt-1">Select from Featured Plugins or paste a GitHub repo URL to install.</p>
+                  <p className="text-[11px] mt-1">Click the "GitHub Registry" tab above to install MMKV or other community plugins.</p>
                 </div>
               ) : (
                 installedPlugins.map((plugin) => (
@@ -471,7 +496,7 @@ export const PluginStoreModal: React.FC<PluginStoreModalProps> = ({
                   >
                     <div className="flex items-center space-x-3">
                       <div className="p-2 rounded bg-devSurface border border-devBorder">
-                        {getPluginIcon(plugin.icon)}
+                        {getPluginIcon(plugin.icon, plugin.id)}
                       </div>
                       <div>
                         <div className="flex items-center space-x-2">

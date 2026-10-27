@@ -12,7 +12,9 @@ Replaces bloated Electron-based debuggers with a lightweight (~4MB) native binar
 - **Console Inspector**: Real-time console streaming with log level filtering (`log`, `info`, `warn`, `error`, `debug`), text search, error stack trace inspection, and one-click JSON payload copying.
 - **Network Inspector & Live Mocks**: Complete HTTP/HTTPS traffic inspector (fetch, Axios, GraphQL, XHR) with request/response headers, status codes, timing metrics, and a built-in response mock override engine.
 - **TanStack Query Inspector**: Deep query cache inspection, query status tags (`fresh`, `fetching`, `stale`, `paused`), and real-time remote actions (invalidate, refetch, reset query).
-- **Extensible Zero-Desktop Plugin Engine**: Dynamically displays custom debugging panels (Feature Flags, MMKV storage, analytics) registered at runtime by mobile clients without recompiling the desktop binary.
+- **GitHub Plugin Store & Registry**: Browse, install, and update custom inspector plugins live from GitHub (`unified-devtools/plugins`) or any custom repository with 1-click installation.
+- **MMKV & AsyncStorage Explorers**: Zero-boilerplate storage inspection. View live key-value pairs, serialized JSON trees, byte footprints, and trigger remote clear/reload actions directly from desktop.
+- **Extensible Zero-Desktop Plugin Engine**: Dynamically displays custom debugging panels registered at runtime by mobile clients without recompiling the desktop binary.
 - **Multi-Device & Multi-App Switching**: Effortlessly monitor multiple simulators, emulators, or connected physical devices from a single window.
 
 ---

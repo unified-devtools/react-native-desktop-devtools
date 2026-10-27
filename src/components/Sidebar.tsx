@@ -8,7 +8,6 @@ import {
   Trash2, 
   Play, 
   Pause, 
-  Puzzle, 
   Sun, 
   Moon,
   PanelLeftClose,
@@ -19,6 +18,7 @@ import {
 } from 'lucide-react';
 import { TabType, DeviceInfo, CustomPluginSchema } from '../types';
 import { useTheme } from '../theme/ThemeContext';
+import { PluginIcon } from './PluginIcon';
 
 interface SidebarProps {
   currentTab: TabType;
@@ -463,7 +463,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }`}
                   >
                     <div className="flex items-center space-x-2.5 truncate">
-                      <Puzzle className="w-4 h-4 text-fuchsia-500 shrink-0" />
+                      <PluginIcon icon={plugin.icon} id={plugin.id} className="w-4 h-4 shrink-0" />
                       {!isCollapsed && <span className="truncate">{plugin.title}</span>}
                     </div>
                   </button>
