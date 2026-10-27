@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version tag (e.g. v0.1.0)'
+        description: 'Release version tag (e.g. v0.1.1)'
         required: true
-        default: 'v0.1.0'
+        default: 'v0.1.1'
       draft:
         description: 'Create draft release'
         required: false
@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   release:
-    name: Build & Package (${{ matrix.platform }})
+    name: Build & Package (${{ matrix.name }})
     permissions:
       contents: write
     strategy:
@@ -38,12 +38,15 @@ jobs:
       matrix:
         include:
           - platform: 'macos-latest'
+            name: 'macos-arm64'
             args: '--target aarch64-apple-darwin'
             target: 'aarch64-apple-darwin'
-          - platform: 'macos-13'
+          - platform: 'macos-latest'
+            name: 'macos-x64'
             args: '--target x86_64-apple-darwin'
             target: 'x86_64-apple-darwin'
           - platform: 'windows-latest'
+            name: 'windows-latest'
             args: ''
             target: ''
 
