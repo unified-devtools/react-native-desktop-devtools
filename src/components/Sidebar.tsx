@@ -12,7 +12,9 @@ import {
   Sun, 
   Moon,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { TabType, DeviceInfo, CustomPluginSchema } from '../types';
 import { useTheme } from '../theme/ThemeContext';
@@ -64,6 +66,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const next = !prev;
       try {
         localStorage.setItem('devtools_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const [isCoreOpen, setIsCoreOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('devtools_sidebar_core_open') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const [isCustomOpen, setIsCustomOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('devtools_sidebar_custom_open') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleCoreAccordion = () => {
+    setIsCoreOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('devtools_sidebar_core_open', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const toggleCustomAccordion = () => {
+    setIsCustomOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('devtools_sidebar_custom_open', String(next));
       } catch {}
       return next;
     });
@@ -175,188 +213,227 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Main Navigation Tabs */}
-      <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'p-2 space-y-2' : 'px-2 py-3 space-y-1'}`}>
+      <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'p-2 space-y-2' : 'px-2 py-3 space-y-2'}`}>
+        {/* Core Plugins Accordion Header */}
         {!isCollapsed && (
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-devTextMuted px-2 py-1">
-            Core Plugins
+          <button
+            type="button"
+            onClick={toggleCoreAccordion}
+            className="w-full flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-devTextMuted hover:text-devText px-2 py-1.5 rounded hover:bg-devCardHover/50 transition-colors group cursor-pointer"
+          >
+            <div className="flex items-center space-x-1.5">
+              <span>Core Plugins</span>
+              <span className="text-[9px] font-mono font-normal text-devTextMuted/70 bg-devCard border border-devBorder px-1 rounded">
+                3
+              </span>
+            </div>
+            {isCoreOpen ? (
+              <ChevronDown className="w-3 h-3 text-devTextMuted group-hover:text-devText transition-transform" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-devTextMuted group-hover:text-devText transition-transform" />
+            )}
+          </button>
+        )}
+
+        {/* Collapsible Core Plugins List */}
+        {(isCoreOpen || isCollapsed) && (
+          <div className="space-y-1">
+            {/* 1. Logs & Console */}
+            <div className="relative group">
+              <button
+                onClick={() => onSelectTab('logs')}
+                title={isCollapsed ? `Logs & Console (${logsCount})` : undefined}
+                className={`w-full flex items-center rounded-md transition-colors ${
+                  isCollapsed
+                    ? 'p-2.5 justify-center relative'
+                    : 'justify-between px-2.5 py-2 text-xs font-medium'
+                } ${
+                  currentTab === 'logs'
+                    ? 'bg-devAccent/15 text-devAccent border border-devAccent/30 font-semibold'
+                    : 'text-devText hover:bg-devCardHover'
+                }`}
+              >
+                <div className="flex items-center space-x-2.5 truncate">
+                  <Terminal className="w-4 h-4 text-emerald-500 shrink-0" />
+                  {!isCollapsed && <span className="truncate">Logs & Console</span>}
+                </div>
+
+                {!isCollapsed && logsCount > 0 && (
+                  <span className="bg-devCard text-devTextDim text-[10px] px-1.5 py-0.5 rounded-full font-mono border border-devBorder">
+                    {logsCount}
+                  </span>
+                )}
+
+                {isCollapsed && logsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-emerald-500 text-white font-mono text-[9px] px-1 rounded-full font-bold shadow-sm">
+                    {logsCount > 99 ? '99+' : logsCount}
+                  </span>
+                )}
+              </button>
+
+              {isCollapsed && (
+                <div className="absolute left-full ml-3 px-2.5 py-1 bg-devSurface border border-devBorder rounded text-xs text-devText shadow-xl whitespace-nowrap z-50 pointer-events-none hidden group-hover:flex items-center space-x-1.5">
+                  <span className="font-medium">Logs & Console</span>
+                  {logsCount > 0 && (
+                    <span className="bg-emerald-500/20 text-emerald-400 font-mono text-[10px] px-1.5 py-0.2 rounded font-bold">
+                      {logsCount}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Network & Mock */}
+            <div className="relative group">
+              <button
+                onClick={() => onSelectTab('network')}
+                title={isCollapsed ? `Network & Mock (${networkCount})` : undefined}
+                className={`w-full flex items-center rounded-md transition-colors ${
+                  isCollapsed
+                    ? 'p-2.5 justify-center relative'
+                    : 'justify-between px-2.5 py-2 text-xs font-medium'
+                } ${
+                  currentTab === 'network'
+                    ? 'bg-devAccent/15 text-devAccent border border-devAccent/30 font-semibold'
+                    : 'text-devText hover:bg-devCardHover'
+                }`}
+              >
+                <div className="flex items-center space-x-2.5 truncate">
+                  <Globe className="w-4 h-4 text-sky-500 shrink-0" />
+                  {!isCollapsed && <span className="truncate">Network & Mock</span>}
+                </div>
+
+                {!isCollapsed && networkCount > 0 && (
+                  <span className="bg-devCard text-devTextDim text-[10px] px-1.5 py-0.5 rounded-full font-mono border border-devBorder">
+                    {networkCount}
+                  </span>
+                )}
+
+                {isCollapsed && networkCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-sky-500 text-white font-mono text-[9px] px-1 rounded-full font-bold shadow-sm">
+                    {networkCount > 99 ? '99+' : networkCount}
+                  </span>
+                )}
+              </button>
+
+              {isCollapsed && (
+                <div className="absolute left-full ml-3 px-2.5 py-1 bg-devSurface border border-devBorder rounded text-xs text-devText shadow-xl whitespace-nowrap z-50 pointer-events-none hidden group-hover:flex items-center space-x-1.5">
+                  <span className="font-medium">Network & Mock</span>
+                  {networkCount > 0 && (
+                    <span className="bg-sky-500/20 text-sky-400 font-mono text-[10px] px-1.5 py-0.2 rounded font-bold">
+                      {networkCount}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 3. TanStack Query */}
+            <div className="relative group">
+              <button
+                onClick={() => onSelectTab('queries')}
+                title={isCollapsed ? `TanStack Query (${queriesCount})` : undefined}
+                className={`w-full flex items-center rounded-md transition-colors ${
+                  isCollapsed
+                    ? 'p-2.5 justify-center relative'
+                    : 'justify-between px-2.5 py-2 text-xs font-medium'
+                } ${
+                  currentTab === 'queries'
+                    ? 'bg-devAccent/15 text-devAccent border border-devAccent/30 font-semibold'
+                    : 'text-devText hover:bg-devCardHover'
+                }`}
+              >
+                <div className="flex items-center space-x-2.5 truncate">
+                  <Database className="w-4 h-4 text-amber-500 shrink-0" />
+                  {!isCollapsed && <span className="truncate">TanStack Query</span>}
+                </div>
+
+                {!isCollapsed && queriesCount > 0 && (
+                  <span className="bg-devCard text-devTextDim text-[10px] px-1.5 py-0.5 rounded-full font-mono border border-devBorder">
+                    {queriesCount}
+                  </span>
+                )}
+
+                {isCollapsed && queriesCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-amber-500 text-white font-mono text-[9px] px-1 rounded-full font-bold shadow-sm">
+                    {queriesCount > 99 ? '99+' : queriesCount}
+                  </span>
+                )}
+              </button>
+
+              {isCollapsed && (
+                <div className="absolute left-full ml-3 px-2.5 py-1 bg-devSurface border border-devBorder rounded text-xs text-devText shadow-xl whitespace-nowrap z-50 pointer-events-none hidden group-hover:flex items-center space-x-1.5">
+                  <span className="font-medium">TanStack Query</span>
+                  {queriesCount > 0 && (
+                    <span className="bg-amber-500/20 text-amber-400 font-mono text-[10px] px-1.5 py-0.2 rounded font-bold">
+                      {queriesCount}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* 1. Logs & Console */}
-        <div className="relative group">
-          <button
-            onClick={() => onSelectTab('logs')}
-            title={isCollapsed ? `Logs & Console (${logsCount})` : undefined}
-            className={`w-full flex items-center rounded-md transition-colors ${
-              isCollapsed
-                ? 'p-2.5 justify-center relative'
-                : 'justify-between px-2.5 py-2 text-xs font-medium'
-            } ${
-              currentTab === 'logs'
-                ? 'bg-devAccent/15 text-devAccent border border-devAccent/30 font-semibold'
-                : 'text-devText hover:bg-devCardHover'
-            }`}
-          >
-            <div className="flex items-center space-x-2.5 truncate">
-              <Terminal className="w-4 h-4 text-emerald-500 shrink-0" />
-              {!isCollapsed && <span className="truncate">Logs & Console</span>}
-            </div>
-
-            {!isCollapsed && logsCount > 0 && (
-              <span className="bg-devCard text-devTextDim text-[10px] px-1.5 py-0.5 rounded-full font-mono border border-devBorder">
-                {logsCount}
-              </span>
-            )}
-
-            {isCollapsed && logsCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-emerald-500 text-white font-mono text-[9px] px-1 rounded-full font-bold shadow-sm">
-                {logsCount > 99 ? '99+' : logsCount}
-              </span>
-            )}
-          </button>
-
-          {isCollapsed && (
-            <div className="absolute left-full ml-3 px-2.5 py-1 bg-devSurface border border-devBorder rounded text-xs text-devText shadow-xl whitespace-nowrap z-50 pointer-events-none hidden group-hover:flex items-center space-x-1.5">
-              <span className="font-medium">Logs & Console</span>
-              {logsCount > 0 && (
-                <span className="bg-emerald-500/20 text-emerald-400 font-mono text-[10px] px-1.5 py-0.2 rounded font-bold">
-                  {logsCount}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 2. Network & Mock */}
-        <div className="relative group">
-          <button
-            onClick={() => onSelectTab('network')}
-            title={isCollapsed ? `Network & Mock (${networkCount})` : undefined}
-            className={`w-full flex items-center rounded-md transition-colors ${
-              isCollapsed
-                ? 'p-2.5 justify-center relative'
-                : 'justify-between px-2.5 py-2 text-xs font-medium'
-            } ${
-              currentTab === 'network'
-                ? 'bg-devAccent/15 text-devAccent border border-devAccent/30 font-semibold'
-                : 'text-devText hover:bg-devCardHover'
-            }`}
-          >
-            <div className="flex items-center space-x-2.5 truncate">
-              <Globe className="w-4 h-4 text-sky-500 shrink-0" />
-              {!isCollapsed && <span className="truncate">Network & Mock</span>}
-            </div>
-
-            {!isCollapsed && networkCount > 0 && (
-              <span className="bg-devCard text-devTextDim text-[10px] px-1.5 py-0.5 rounded-full font-mono border border-devBorder">
-                {networkCount}
-              </span>
-            )}
-
-            {isCollapsed && networkCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-sky-500 text-white font-mono text-[9px] px-1 rounded-full font-bold shadow-sm">
-                {networkCount > 99 ? '99+' : networkCount}
-              </span>
-            )}
-          </button>
-
-          {isCollapsed && (
-            <div className="absolute left-full ml-3 px-2.5 py-1 bg-devSurface border border-devBorder rounded text-xs text-devText shadow-xl whitespace-nowrap z-50 pointer-events-none hidden group-hover:flex items-center space-x-1.5">
-              <span className="font-medium">Network & Mock</span>
-              {networkCount > 0 && (
-                <span className="bg-sky-500/20 text-sky-400 font-mono text-[10px] px-1.5 py-0.2 rounded font-bold">
-                  {networkCount}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 3. TanStack Query */}
-        <div className="relative group">
-          <button
-            onClick={() => onSelectTab('queries')}
-            title={isCollapsed ? `TanStack Query (${queriesCount})` : undefined}
-            className={`w-full flex items-center rounded-md transition-colors ${
-              isCollapsed
-                ? 'p-2.5 justify-center relative'
-                : 'justify-between px-2.5 py-2 text-xs font-medium'
-            } ${
-              currentTab === 'queries'
-                ? 'bg-devAccent/15 text-devAccent border border-devAccent/30 font-semibold'
-                : 'text-devText hover:bg-devCardHover'
-            }`}
-          >
-            <div className="flex items-center space-x-2.5 truncate">
-              <Database className="w-4 h-4 text-amber-500 shrink-0" />
-              {!isCollapsed && <span className="truncate">TanStack Query</span>}
-            </div>
-
-            {!isCollapsed && queriesCount > 0 && (
-              <span className="bg-devCard text-devTextDim text-[10px] px-1.5 py-0.5 rounded-full font-mono border border-devBorder">
-                {queriesCount}
-              </span>
-            )}
-
-            {isCollapsed && queriesCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-amber-500 text-white font-mono text-[9px] px-1 rounded-full font-bold shadow-sm">
-                {queriesCount > 99 ? '99+' : queriesCount}
-              </span>
-            )}
-          </button>
-
-          {isCollapsed && (
-            <div className="absolute left-full ml-3 px-2.5 py-1 bg-devSurface border border-devBorder rounded text-xs text-devText shadow-xl whitespace-nowrap z-50 pointer-events-none hidden group-hover:flex items-center space-x-1.5">
-              <span className="font-medium">TanStack Query</span>
-              {queriesCount > 0 && (
-                <span className="bg-amber-500/20 text-amber-400 font-mono text-[10px] px-1.5 py-0.2 rounded font-bold">
-                  {queriesCount}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Custom Plugins */}
+        {/* Custom Plugins Accordion */}
         {customPlugins.length > 0 && (
-          <>
+          <div className="pt-2">
             {!isCollapsed && (
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-devTextMuted px-2 pt-4 pb-1">
-                Custom Plugins
+              <button
+                type="button"
+                onClick={toggleCustomAccordion}
+                className="w-full flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-devTextMuted hover:text-devText px-2 py-1.5 rounded hover:bg-devCardHover/50 transition-colors group cursor-pointer"
+              >
+                <div className="flex items-center space-x-1.5">
+                  <span>Custom Plugins</span>
+                  <span className="text-[9px] font-mono font-normal text-devTextMuted/70 bg-devCard border border-devBorder px-1 rounded">
+                    {customPlugins.length}
+                  </span>
+                </div>
+                {isCustomOpen ? (
+                  <ChevronDown className="w-3 h-3 text-devTextMuted group-hover:text-devText transition-transform" />
+                ) : (
+                  <ChevronRight className="w-3 h-3 text-devTextMuted group-hover:text-devText transition-transform" />
+                )}
+              </button>
+            )}
+
+            {(isCustomOpen || isCollapsed) && (
+              <div className="space-y-1 mt-1">
+                {customPlugins.map((plugin) => (
+                  <div key={plugin.id} className="relative group">
+                    <button
+                      onClick={() => {
+                        onSelectTab('custom');
+                        onSelectCustomPlugin(plugin.id);
+                      }}
+                      title={isCollapsed ? plugin.title : undefined}
+                      className={`w-full flex items-center rounded-md transition-colors ${
+                        isCollapsed
+                          ? 'p-2.5 justify-center'
+                          : 'justify-between px-2.5 py-2 text-xs font-medium'
+                      } ${
+                        currentTab === 'custom' && selectedCustomPluginId === plugin.id
+                          ? 'bg-devAccent/15 text-devAccent border border-devAccent/30 font-semibold'
+                          : 'text-devText hover:bg-devCardHover'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5 truncate">
+                        <Puzzle className="w-4 h-4 text-fuchsia-500 shrink-0" />
+                        {!isCollapsed && <span className="truncate">{plugin.title}</span>}
+                      </div>
+                    </button>
+
+                    {isCollapsed && (
+                      <div className="absolute left-full ml-3 px-2.5 py-1 bg-devSurface border border-devBorder rounded text-xs text-devText shadow-xl whitespace-nowrap z-50 pointer-events-none hidden group-hover:flex items-center">
+                        <span className="font-medium">{plugin.title}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
-            {customPlugins.map((plugin) => (
-              <div key={plugin.id} className="relative group">
-                <button
-                  onClick={() => {
-                    onSelectTab('custom');
-                    onSelectCustomPlugin(plugin.id);
-                  }}
-                  title={isCollapsed ? plugin.title : undefined}
-                  className={`w-full flex items-center rounded-md transition-colors ${
-                    isCollapsed
-                      ? 'p-2.5 justify-center'
-                      : 'justify-between px-2.5 py-2 text-xs font-medium'
-                  } ${
-                    currentTab === 'custom' && selectedCustomPluginId === plugin.id
-                      ? 'bg-devAccent/15 text-devAccent border border-devAccent/30 font-semibold'
-                      : 'text-devText hover:bg-devCardHover'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2.5 truncate">
-                    <Puzzle className="w-4 h-4 text-fuchsia-500 shrink-0" />
-                    {!isCollapsed && <span className="truncate">{plugin.title}</span>}
-                  </div>
-                </button>
-
-                {isCollapsed && (
-                  <div className="absolute left-full ml-3 px-2.5 py-1 bg-devSurface border border-devBorder rounded text-xs text-devText shadow-xl whitespace-nowrap z-50 pointer-events-none hidden group-hover:flex items-center">
-                    <span className="font-medium">{plugin.title}</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </>
+          </div>
         )}
       </div>
 
